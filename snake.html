@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simple Snake Game</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --grid: #1f2937;
+      --snake: #22c55e;
+      --food: #ef4444;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at top, #1e293b, var(--bg));
+      color: var(--text);
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .game-wrap {
+      width: min(92vw, 480px);
+      background: rgba(17, 24, 39, 0.85);
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 16px;
+      backdrop-filter: blur(4px);
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
+    .hint {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 0.9rem;
+      text-align: center;
+    }
+
+    canvas {
+      width: 100%;
+      aspect-ratio: 1;
+      display: block;
+      background-color: var(--panel);
+      border: 1px solid #334155;
+      border-radius: 8px;
+      image-rendering: pixelated;
+    }
+
+    button {
+      border: 1px solid #475569;
+      background: #1e293b;
+      color: var(--text);
+      border-radius: 8px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    button:hover {
+      background: #334155;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-wrap">
+    <div class="topbar">
+      <div>Score: <span id="score">0</span></div>
+      <button id="restartBtn" type="button">Restart</button>
+    </div>
+    <canvas id="game" width="400" height="400" aria-label="Snake game board"></canvas>
+    <div class="hint">Use arrow keys or WASD. Press Space to restart after game over.</div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const restartBtn = document.getElementById('restartBtn');
+
+    const gridSize = 20;
+    const tileCount = canvas.width / gridSize;
+
+    let snake;
+    let direction;
+    let nextDirection;
+    let food;
+    let score;
+    let speed;
+    let gameOver;
+
+    function resetGame() {
+      snake = [
+        { x: 10, y: 10 },
+        { x: 9, y: 10 },
+        { x: 8, y: 10 }
+      ];
+      direction = { x: 1, y: 0 };
+      nextDirection = { x: 1, y: 0 };
+      score = 0;
+      speed = 120;
+      gameOver = false;
+      placeFood();
+      scoreEl.textContent = score;
+    }
+
+    function placeFood() {
+      do {
+        food = {
+          x: Math.floor(Math.random() * tileCount),
+          y: Math.floor(Math.random() * tileCount)
+        };
+      } while (snake.some(part => part.x === food.x && part.y === food.y));
+    }
+
+    function drawRect(x, y, color) {
+      ctx.fillStyle = color;
+      ctx.fillRect(x * gridSize, y * gridSize, gridSize - 1, gridSize - 1);
+    }
+
+    function draw() {
+      ctx.fillStyle = '#111827';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      snake.forEach((part, i) => drawRect(part.x, part.y, i === 0 ? '#4ade80' : '#22c55e'));
+      drawRect(food.x, food.y, '#ef4444');
+
+      if (gameOver) {
+        ctx.fillStyle = 'rgba(0,0,0,0.55)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#f8fafc';
+        ctx.textAlign = 'center';
+        ctx.font = 'bold 36px Segoe UI';
+        ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2 - 10);
+        ctx.font = '16px Segoe UI';
+        ctx.fillText('Press Space or Restart', canvas.width / 2, canvas.height / 2 + 24);
+      }
+    }
+
+    function step() {
+      if (gameOver) return;
+
+      direction = nextDirection;
+
+      const head = {
+        x: snake[0].x + direction.x,
+        y: snake[0].y + direction.y
+      };
+
+      const hitWall = head.x < 0 || head.x >= tileCount || head.y < 0 || head.y >= tileCount;
+      const hitSelf = snake.some(part => part.x === head.x && part.y === head.y);
+
+      if (hitWall || hitSelf) {
+        gameOver = true;
+        draw();
+        return;
+      }
+
+      snake.unshift(head);
+
+      const ateFood = head.x === food.x && head.y === food.y;
+      if (ateFood) {
+        score += 1;
+        scoreEl.textContent = score;
+        placeFood();
+        speed = Math.max(70, speed - 2);
+      } else {
+        snake.pop();
+      }
+
+      draw();
+      setTimeout(step, speed);
+    }
+
+    function setDirection(newX, newY) {
+      if (gameOver) return;
+
+      const reverse = direction.x === -newX && direction.y === -newY;
+      if (!reverse) {
+        nextDirection = { x: newX, y: newY };
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      const key = e.key.toLowerCase();
+      if (key === 'arrowup' || key === 'w') setDirection(0, -1);
+      if (key === 'arrowdown' || key === 's') setDirection(0, 1);
+      if (key === 'arrowleft' || key === 'a') setDirection(-1, 0);
+      if (key === 'arrowright' || key === 'd') setDirection(1, 0);
+
+      if (key === ' ' && gameOver) {
+        resetGame();
+        draw();
+        setTimeout(step, speed);
+      }
+    });
+
+    restartBtn.addEventListener('click', () => {
+      resetGame();
+      draw();
+      setTimeout(step, speed);
+    });
+
+    resetGame();
+    draw();
+    setTimeout(step, speed);
+  </script>
+</body>
+</html>
